@@ -86,7 +86,7 @@ for i in psutil.net_connections('udp'):
         udp_listen_count += 1
     else:
         udp_established += 1
-udp_count = {'LSTEN' : udp_listen_count , 'ESTABLISHED': udp_established }
+udp_count = {'LISTEN' : udp_listen_count , 'ESTABLISHED': udp_established }
 
 
 
@@ -172,7 +172,7 @@ for i in pids.keys():
 ##Counters
 influx_counters = []
 influx_counters.append({
-			"measurement": "psutil",
+			"measurement": "psutil_counters",
 			"tags": {
 				"hostname" : hn[0],
 				"counters": "counters",
@@ -185,7 +185,7 @@ client.write_points(influx_counters)
 ##memory
 influx_memory = []
 influx_memory.append({
-			"measurement": "psutil",
+			"measurement": "psutil_memory",
 			"tags": {
 				"hostname" : hn[0],
 				"counters": "memory",
@@ -198,7 +198,7 @@ client.write_points(influx_memory)
 ##swap
 influx_swap = []
 influx_swap.append({
-			"measurement": "psutil",
+			"measurement": "psutil_swap",
 			"tags": {
 				"hostname" : hn[0],
 				"counters": "swap",
@@ -210,7 +210,7 @@ influx_swap.append({
 client.write_points(influx_swap)
 influx_pids = []
 influx_pids.append({
-			"measurement": "psutil",
+			"measurement": "psutil_process",
 			"tags": {
 				"hostname" : hn[0],
 				"counters": "pids",
@@ -223,7 +223,7 @@ client.write_points(influx_pids)
 ## TCP counts
 influx_net_tcp_count = []
 influx_net_tcp_count.append({
-			"measurement": "psutil",
+			"measurement": "psutil_tcp_count",
 			"tags": {
 				"hostname" : hn[0],
 				"counters": "tcp_count",
@@ -236,7 +236,7 @@ client.write_points(influx_net_tcp_count)
 ### UDP Count
 influx_udp_count = []
 influx_udp_count.append({
-			"measurement": "psutil",
+			"measurement": "psutil_udp_count",
 			"tags": {
 				"hostname" : hn[0],
 				"counters": "udp_count",
@@ -250,7 +250,7 @@ client.write_points(influx_udp_count)
 ###apps per user
 influx_user_app = []
 influx_user_app.append({
-			"measurement": "psutil",
+			"measurement": "psutil_user_apps",
 			"tags": {
 				"hostname" : hn[0],
 				"counters": "user_app",
@@ -264,7 +264,7 @@ client.write_points(influx_user_app)
 influx_disk_io = []
 for i in disk_io.keys():
 	influx_disk_io.append({
-				"measurement": "psutil",
+				"measurement": "psutil_disk_io",
 				"tags": {
 					"hostname" : hn[0],
 					"counters": i,
