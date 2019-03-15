@@ -1,17 +1,13 @@
 #!/usr/bin/python3
 import os
-#import csv
 import time
 from pprint import pprint
 from influxdb import InfluxDBClient
 import psutil
-
-host = '127.0.0.1'
-username = 'admin'
-password = 'yourpassword'
+from config import *
 
 client = InfluxDBClient(host=host, port=8086, username=username, password=password)
-client.switch_database('stats')
+client.switch_database(DB)
 
 date = os.popen("date +%s").read().split('\n')
 time = ((int(date[0])) * 1000000000 - 10000000000)
@@ -157,9 +153,31 @@ for i in pids.keys():
     b = (pids[i]['status'])
     s_pids[b] += 1
 
-
-
-
+anet_io_counters = psutil.net_io_counters(pernic=False, nowrap=True)
+net_io_counters = psutil.net_io_counters(pernic=True, nowrap=True)
+net_io_count = { 'all_int': { 
+                             'bytes_sent': anet_io_counters.bytes_sent,
+                             'bytes_recv': anet_io_counters.bytes_recv,
+                             'packets_sent': anet_io_counters.packets_sent,
+                             'pcckets_recv': anet_io_counters.packets_recv,
+                             'error_in': anet_io_counters.errin,
+                             'error_out': anet_io_counters.errout,
+                             'drop_in': anet_io_counters.dropin,
+                             'drop_out': anet_io_counters.dropout
+                            }}
+for i in net_io_counters.keys():
+    net_io_count.update({ i: { 
+                                'bytes_sent': net_io_counters[i].bytes_sent,
+                                'bytes_recv': net_io_counters[i].bytes_recv,
+                                'packets_sent': net_io_counters[i].packets_sent,
+                                'pcckets_recv': net_io_counters[i].packets_recv,
+                                'error_in': net_io_counters[i].errin,
+                                'error_out': net_io_counters[i].errout,
+                                'drop_in': net_io_counters[i].dropin,
+                                'drop_out': net_io_counters[i].dropout
+                         }})
+                         
+##pprint (net_io_count)
 ##pprint (counters)
 ##pprint (memory)
 ##pprint (swap)
@@ -263,14 +281,29 @@ client.write_points(influx_user_app)
 ##Disk_io
 influx_disk_io = []
 for i in disk_io.keys():
-	influx_disk_io.append({
-				"measurement": "psutil_disk_io",
-				"tags": {
-					"hostname" : hn[0],
-					"counters": i,
-				},
-				"time": time,
-				"fields": disk_io[i]
-				}
-				)
+    influx_disk_io.append({
+			   "measurement": "psutil_disk_io",
+			   "tags": {
+				"hostname" : hn[0],
+				"counters": i,
+			   },
+			   "time": time,
+			   "fields": disk_io[i]
+			   }
+			   )
 client.write_points(influx_disk_io)
+
+##Network I/O
+influx_net_io = []
+for i in net_io_count.keys():
+    influx_net_io.append({
+			   "measurement": "psutil_net_io",
+			   "tags": {
+				"hostname" : hn[0],
+				"counters": i,
+			   },
+			   "time": time,
+			   "fields": net_io_count[i]
+			   }
+			   )
+client.write_points(influx_net_io)
