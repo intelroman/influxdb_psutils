@@ -19,16 +19,26 @@ pcore_count = psutil.cpu_count(logical=False)
 lcore_count = psutil.cpu_count(logical=True)
 cpu_load = psutil.cpu_percent(interval=1)
 cpu_load_core = psutil.cpu_percent(interval=1, percpu=True)
-
+cpu_times_percent = psutil.cpu_times_percent(interval=1)
+pcpu_times_percent = psutil.cpu_times_percent(interval=1, percpu=True)
 counters = { 
             'total_pids': total_pids,
             'pcore_count': pcore_count,
             'lcore_count': lcore_count,
+            'all_cpu_times_user': cpu_times_percent.user,
+            'all_cpu_times_nice': cpu_times_percent.nice,
+            'all_cpu_times_system': cpu_times_percent.system,
+            'all_cpu_times_idle': cpu_times_percent.idle,
+            'all_cpu_times_iowait': cpu_times_percent.iowait,
+            'all_cpu_times_irq': cpu_times_percent.irq,
+            'all_cpu_times_softirq': cpu_times_percent.softirq,
+            'all_cpu_times_steal': cpu_times_percent.steal,
+            'all_cpu_times_guest': cpu_times_percent.guest,
+            'all_cpu_times_guest_nice': cpu_times_percent.guest_nice,
             'cpu_load': cpu_load
            }
 b = 0
 for i in cpu_load_core:
-    core = 'core_usage'
     counters.update({("core"+str(b)+"_usage"): i})   
     b += 1
 del (b)
@@ -36,7 +46,23 @@ a = ['udp4', 'tcp', 'tcp4', 'all', 'inet', 'unix', 'tcp6', 'udp6', 'inet6', 'udp
 for i in a:
     counters.update({"count_net_"+str(i): len(psutil.net_connections(i))}) 
 del(a)
-
+b = 0
+for i in pcpu_times_percent:
+    counters.update({
+                     "cpu"+str(b)+"_times_user": pcpu_times_percent[b].user,
+                     "cpu"+str(b)+"_times_nice": pcpu_times_percent[b].nice,
+                     "cpu"+str(b)+"_times_system": pcpu_times_percent[b].system,
+                     "cpu"+str(b)+"_times_idle": pcpu_times_percent[b].idle,
+                     "cpu"+str(b)+"_times_iowait": pcpu_times_percent[b].iowait,
+                     "cpu"+str(b)+"_times_irq": pcpu_times_percent[b].irq,
+                     "cpu"+str(b)+"_times_softirq": pcpu_times_percent[b].softirq,
+                     "cpu"+str(b)+"_times_steal": pcpu_times_percent[b].steal,
+                     "cpu"+str(b)+"_times_guest": pcpu_times_percent[b].guest,
+                     "cpu"+str(b)+"_times_guest_nice": pcpu_times_percent[b].guest_nice
+                    })
+    b += 1
+del(b)
+ 
 ### RAM ####
 mem = psutil.virtual_memory()
 memory = { 
@@ -85,7 +111,22 @@ for i in psutil.net_connections('udp'):
 udp_count = {'LISTEN' : udp_listen_count , 'ESTABLISHED': udp_established }
 
 
-
+### DISK patitions
+partitions = []
+disk_part = psutil.disk_partitions()
+for i in disk_part:
+    if i.mountpoint.find('deleted') == -1:
+       partitions.append(i.mountpoint)
+    else:
+       continue
+part_info = {}
+for i in partitions:
+    part_info.update({ i: {
+                           "total": psutil.disk_usage(i).total,
+                           "used": psutil.disk_usage(i).used,
+                           "free": psutil.disk_usage(i).free,
+                           "percent": psutil.disk_usage(i).percent
+                           }})
 ### DISKS ###
 total_disk_io = psutil.disk_io_counters(perdisk=False, nowrap=True)
 per_disk_io = psutil.disk_io_counters(perdisk=True, nowrap=True)
@@ -176,7 +217,22 @@ for i in net_io_counters.keys():
                                 'drop_in': net_io_counters[i].dropin,
                                 'drop_out': net_io_counters[i].dropout
                          }})
-                         
+### Temp
+temp = psutil.sensors_temperatures()
+temps = {}
+b = 0
+if bool(temp) == True:
+   if type(temp) == dict:
+      for i in temp.keys():
+          if type(temp[i]) == list:
+             for ii in temp[i]:
+                 if bool(ii.label) == True:
+                     temps.update({ (ii.label) : { "label": ii.label, "current": ii.current, "high": ii.high, "critical": ii.critical }})
+                 else:
+                     temps.update({ (i)+" "+str(b): {"label": (i)+" "+str(b), "current": ii.current, "high": ii.high, "critical": ii.critical}})
+                     b += 1
+del(b)
+##pprint (temps)
 ##pprint (net_io_count)
 ##pprint (counters)
 ##pprint (memory)
@@ -186,6 +242,7 @@ for i in net_io_counters.keys():
 ##pprint (disk_io)
 ##pprint (user_app)
 ##pprint (s_pids)
+##pprint (part_info)
 
 ##Counters
 influx_counters = []
@@ -278,6 +335,19 @@ influx_user_app.append({
 			}
 			)
 client.write_points(influx_user_app)
+## Disk part
+influx_disk_part = []
+for i in part_info.keys():
+    influx_disk_part.append({
+			     "measurement": "psutil_disk_part",
+			     "tags": {
+			          "hostname" : hn[0],
+				  "counters": i,
+			     },
+			     "time": time,
+			     "fields": part_info[i]
+			     })
+client.write_points(influx_disk_part)
 ##Disk_io
 influx_disk_io = []
 for i in disk_io.keys():
@@ -307,3 +377,17 @@ for i in net_io_count.keys():
 			   }
 			   )
 client.write_points(influx_net_io)
+## Temp
+influx_temp = []
+for i in temps.keys():
+    influx_temp.append({
+			   "measurement": "psutil_temp",
+			   "tags": {
+				"hostname" : hn[0],
+				"counters": i,
+			   },
+			   "time": time,
+			   "fields": temps[i]
+			   }
+			   )
+client.write_points(influx_temp)
